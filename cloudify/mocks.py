@@ -38,8 +38,12 @@ class MockCloudifyContext(CloudifyContext):
                  operation=None,
                  resources=None,
                  provider_context=None,
-                 bootstrap_context=None):
-        super(MockCloudifyContext, self).__init__({'operation': operation})
+                 bootstrap_context=None,
+                 task_name=None):
+        super(MockCloudifyContext, self).__init__({
+            'operation': operation,
+            'task_name': task_name
+        })
         self._node_id = node_id
         self._node_name = node_name
         self._blueprint_id = blueprint_id

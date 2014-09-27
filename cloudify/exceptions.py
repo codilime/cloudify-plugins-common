@@ -67,6 +67,7 @@ class HttpException(NonRecoverableError):
 
 
 class CommandExecutionException(Exception):
+
     """
     Indicates a failure to execute a command.
 
@@ -81,12 +82,14 @@ class CommandExecutionException(Exception):
         self.error = error
         self.code = code
         self.output = output
-        Exception.__init__(self, self.__str__())
+        super(CommandExecutionException, self).__init__(str(self))
 
     def __str__(self):
-        return "Failed executing command: {0}\ncode: " \
-               "{1}\nerror: {2}\nmessage: {3}"\
-               .format(self.command, self.code, self.error, self.output)
+        return 'Failed executing command: {0} \n' \
+               'code: {1}\n' \
+               'error: {2}\n' \
+               'message: {3}\n'\
+            .format(self.command, self.code, self.error, self.output)
 
 
 class TimeoutException(Exception):
