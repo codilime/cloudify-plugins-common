@@ -16,11 +16,12 @@
 from setuptools import setup
 
 install_requires = [
-    'cloudify-rest-client==3.3a3',
+    'cloudify-rest-client==3.3a4',
     'pika==0.9.13',
     'networkx==1.8.1',
     'proxy_tools==0.1.0',
-    'bottle==0.12.7'
+    'bottle==0.12.7',
+    'jinja2==2.7.2'
 ]
 
 try:
@@ -36,13 +37,14 @@ except ImportError, e:
 
 setup(
     name='cloudify-plugins-common',
-    version='3.3a3',
+    version='3.3a4',
     author='cosmo-admin',
     author_email='cosmo-admin@gigaspaces.com',
     packages=['cloudify',
               'cloudify.workflows',
               'cloudify.plugins',
-              'cloudify.proxy'],
+              'cloudify.proxy',
+              'cloudify.test_utils'],
     license='LICENSE',
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
