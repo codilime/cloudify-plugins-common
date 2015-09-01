@@ -825,7 +825,7 @@ class SystemWideWorkflowContext(_WorkflowContextBase):
     def __init__(self, ctx):
         super(SystemWideWorkflowContext, self).__init__(
             ctx,
-            SystemWideRemoteContextHandler
+            RemoteContextHandler
         )
 
     def load_deployment_contexts(self):
@@ -1165,14 +1165,6 @@ class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
                 resource_path=resource_path,
                 target_path=target_path)
 
-    def get_operation_task_queue(self, workflow_node_instance,
-                                 operation_executor):
-        rest_node_instance = workflow_node_instance._node_instance
-        if operation_executor == 'host_agent':
-            return rest_node_instance.host_id
-        if operation_executor == 'central_deployment_agent':
-            return self.workflow_ctx.deployment_id
-
     def start_deployment_modification(self, nodes):
         deployment_id = self.workflow_ctx.deployment_id
         client = get_rest_client()
@@ -1194,17 +1186,6 @@ class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
     def rollback_deployment_modification(self, modification):
         client = get_rest_client()
         client.deployment_modifications.rollback(modification.id)
-
-
-class SystemWideRemoteContextHandler(RemoteContextHandler):
-
-    def get_operation_task_queue(self, workflow_node_instance,
-                                 operation_executor):
-        rest_node_instance = workflow_node_instance._node_instance
-        if operation_executor == 'host_agent':
-            return rest_node_instance.host_id
-        if operation_executor == 'central_deployment_agent':
-            return 'cloudify.management'
 
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
