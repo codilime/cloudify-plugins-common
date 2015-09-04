@@ -782,10 +782,12 @@ class CloudifyWorkflowContext(
     """
 
     def __init__(self, ctx):
-        _WorkflowContextBase.__init__(
-            self,
-            ctx,
-            RemoteCloudifyWorkflowContextHandler)
+        # Not using super() here, because WorkflowNodesAndInstancesContainer's
+        # __init__() needs some data to be prepared before calling it. It would
+        # be possible to overcome this by using kwargs + super(...).__init__()
+        # in _WorkflowContextBase, but the way it is now is self-explanatory.
+        _WorkflowContextBase.__init__(self, ctx,
+                                      RemoteCloudifyWorkflowContextHandler)
 
         self.blueprint = context.BlueprintContext(self._context)
         self.deployment = WorkflowDeploymentContext(self._context, self)
