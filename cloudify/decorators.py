@@ -180,15 +180,35 @@ def operation(func=None, **arguments):
         return partial_wrapper
 
 
-def _generic_wf_decorator(func=None, ctx_class=CloudifyWorkflowContext,
-                          **arguments):
+def workflow(func=None, system_wide=False, **arguments):
     """
-    Generic workflow decorator. It injects a ctx param (instance of ctx_class)
-    to the wrapped function's parameters.
+    Decorate workflow functions with this decorator.
 
-    Internally, if celery is installed, will also wrap the function
-    with a ``@celery.task`` decorator.
+    The ``ctx`` injected to the function arguments is of type
+    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
+    or ``cloudify.workflows.workflow_context.SystemWideWorkflowContext``
+    if ``system_wide`` flag is set to True.
+
+    The ``ctx`` object can also be accessed by importing
+    ``cloudify.workflows.ctx``
+
+    ``system_wide`` flag turns this workflow into a system-wide workflow that
+    is executed by the management worker and has access to an instance of
+    ``cloudify.workflows.workflow_context.SystemWideWorkflowContext`` as its
+    context.
+
+    Example::
+
+        from cloudify.workflows import ctx
+
+        @workflow
+        def reinstall(**kwargs):
+            pass
     """
+    if system_wide:
+        ctx_class = SystemWideWorkflowContext
+    else:
+        ctx_class = CloudifyWorkflowContext
     if func is not None:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -212,40 +232,8 @@ def _generic_wf_decorator(func=None, ctx_class=CloudifyWorkflowContext,
         return _process_wrapper(wrapper, arguments)
     else:
         def partial_wrapper(fn):
-            return _generic_wf_decorator(fn, ctx_class, **arguments)
+            return workflow(fn, system_wide, **arguments)
         return partial_wrapper
-
-
-def workflow(func=None, **arguments):
-    """
-    Decorate workflow functions with this decorator.
-
-    The ``ctx`` injected to the function arguments is of type
-    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
-
-    The ``ctx`` object can also be accessed by importing
-    ``cloudify.workflows.ctx``
-
-    Example::
-
-        from cloudify.workflows import ctx
-
-        @workflow
-        def reinstall(**kwargs):
-            pass
-    """
-    return _generic_wf_decorator(func, CloudifyWorkflowContext, **arguments)
-
-
-def system_wide_workflow(func=None, **arguments):
-    """
-    Decorate system-wide workflows with this decorator.
-
-    The function will be executed by the manager's worker having
-    access to an instance of SystemWideWorkflowContext as its context
-    (ctx parameter).
-    """
-    return _generic_wf_decorator(func, SystemWideWorkflowContext, **arguments)
 
 
 class RequestSystemExit(SystemExit):
