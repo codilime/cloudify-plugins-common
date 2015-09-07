@@ -25,6 +25,17 @@ from cloudify.decorators import operation
 from cloudify.test_utils import workflow_test
 
 
+class GlobalCounter(object):
+    def __init__(self):
+        self.count = 0
+
+    def get_and_increment(self):
+        result = self.count
+        self.count += 1
+        return result
+global_counter = GlobalCounter()
+
+
 class TestExecuteOperationWorkflow(testtools.TestCase):
     execute_blueprint_path = path.join('resources', 'blueprints',
                                        'execute_operation.yaml')
@@ -179,6 +190,60 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
                                      ['node1', 'node3'],
                                      time_diff_assertions_pairs)
 
+    @workflow_test(execute_blueprint_path)
+    def test_execute_operation_failure_zero_subgraph_retries(self, cfy_local):
+        self._test_retries(cfy_local,
+                           op='test.fail',
+                           count=2,
+                           subgraph_retries=0,
+                           expected_str='test_builtin_workflows.fail')
+
+    @workflow_test(execute_blueprint_path)
+    def test_execute_operation_retry_zero_subgraph_retries(self, cfy_local):
+        self._test_retries(cfy_local,
+                           op='test.retry',
+                           count=2,
+                           subgraph_retries=0,
+                           expected_str='test_builtin_workflows.retry')
+
+    @workflow_test(execute_blueprint_path)
+    def test_execute_operation_failure_one_subgraph_retry(self, cfy_local):
+        # no subgraph retry logic is implemented for execute_operation
+        # node instances subgraphs, so we apply the same assertions
+        # like previous tests
+        self._test_retries(cfy_local,
+                           op='test.fail',
+                           count=2,
+                           subgraph_retries=1,
+                           expected_str='test_builtin_workflows.fail')
+
+    @workflow_test(execute_blueprint_path)
+    def test_execute_operation_retry_one_subgraph_retry(self, cfy_local):
+        # no subgraph retry logic is implemented for execute_operation
+        # node instances subgraphs, so we apply the same assertions
+        # like previous tests
+        self._test_retries(cfy_local,
+                           op='test.retry',
+                           count=2,
+                           subgraph_retries=1,
+                           expected_str='test_builtin_workflows.retry')
+
+    def _test_retries(self, cfy_local,
+                      op, count, subgraph_retries, expected_str):
+        params = self._get_params(op=op,
+                                  op_params={'count': count},
+                                  node_ids=['node1'])
+        e = self.assertRaises(RuntimeError,
+                              cfy_local.execute,
+                              'execute_operation', params,
+                              task_retries=1,
+                              task_retry_interval=0,
+                              subgraph_retries=subgraph_retries)
+        instance = cfy_local.storage.get_node_instances('node1')[0]
+        invocations = instance.runtime_properties.get('invocations', [])
+        self.assertEqual(len(invocations), 2)
+        self.assertIn(expected_str, str(e))
+
     def _make_filter_assertions(self, cfy_local,
                                 expected_num_of_visited_instances,
                                 node_ids=None, node_instance_ids=None,
@@ -278,10 +343,9 @@ class TestScale(testtools.TestCase):
 
 
 class TestSubgraphWorkflowLogic(testtools.TestCase):
-    subgraph_blueprint_path = path.join('resources', 'blueprints',
-                                        'test-subgraph-blueprint.yaml')
 
-    @workflow_test(subgraph_blueprint_path)
+    @workflow_test(path.join('resources', 'blueprints',
+                             'test-subgraph-blueprint.yaml'))
     def test_heal_connected_to_relationship_operations_on_on_affected(self,
                                                                       cfy_local
                                                                       ):
@@ -320,6 +384,27 @@ class TestSubgraphWorkflowLogic(testtools.TestCase):
         assertion(expected_establish,
                   'cloudify.interfaces.relationship_lifecycle.establish')
 
+    @workflow_test(path.join('resources', 'blueprints',
+                             'test-heal-correct-order-blueprint.yaml'))
+    def test_heal_correct_order(self, env):
+        env.execute('heal', parameters={
+            'node_instance_id': env.storage.get_node_instances(
+                node_id='node1')[0].id})
+        all_invocations = []
+        for instance in env.storage.get_node_instances():
+            invocations = instance.runtime_properties.get('invocations', [])
+            all_invocations += invocations
+        sorted_invocations = sorted(all_invocations,
+                                    key=lambda i: i['counter'])
+
+        def assert_op(invocation, node_id, op):
+            self.assertEqual(invocation['node_id'], node_id)
+            self.assertEqual(invocation['operation'].split('.')[-1], op)
+        assert_op(sorted_invocations[0], 'node2', 'stop')
+        assert_op(sorted_invocations[1], 'node3', 'unlink')
+        assert_op(sorted_invocations[2], 'node3', 'establish')
+        assert_op(sorted_invocations[3], 'node2', 'create')
+
 
 @nottest
 @operation
@@ -338,18 +423,53 @@ def exec_op_dependency_order_test_operation(ctx, **kwargs):
 
 @operation
 def source_operation(ctx, **_):
-    _write_operation(ctx, runs_on='source')
+    _write_rel_operation(ctx, runs_on='source')
 
 
 @operation
 def target_operation(ctx, **_):
-    _write_operation(ctx, runs_on='target')
+    _write_rel_operation(ctx, runs_on='target')
 
 
-def _write_operation(ctx, runs_on):
+@operation
+def node_operation(ctx, **_):
+    _write_operation(ctx)
+
+
+@operation
+def fail(ctx, count, **_):
+    _write_operation(ctx)
+    current_count = ctx.instance.runtime_properties.get('current_count', 0)
+    if current_count < count:
+        ctx.instance.runtime_properties['current_count'] = current_count + 1
+        raise RuntimeError('EXPECTED TEST FAILURE')
+
+
+@operation
+def retry(ctx, count, **_):
+    _write_operation(ctx)
+    current_count = ctx.instance.runtime_properties.get('current_count', 0)
+    if current_count < count:
+        ctx.instance.runtime_properties['current_count'] = current_count + 1
+        return ctx.operation.retry()
+
+
+def _write_operation(ctx):
+    invocations = ctx.instance.runtime_properties.get('invocations', [])
+    invocations.append({
+        'node_id': ctx.node.id,
+        'operation': ctx.operation.name,
+        'counter': global_counter.get_and_increment()
+    })
+    ctx.instance.runtime_properties['invocations'] = invocations
+
+
+def _write_rel_operation(ctx, runs_on):
     invocations = ctx.source.instance.runtime_properties.get('invocations', [])
     invocations.append({
+        'node_id': ctx.source.node.id,
         'operation': ctx.operation.name,
         'target_node': ctx.target.node.name,
-        'runs_on': runs_on})
+        'runs_on': runs_on,
+        'counter': global_counter.get_and_increment()})
     ctx.source.instance.runtime_properties['invocations'] = invocations

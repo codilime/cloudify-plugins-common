@@ -33,7 +33,8 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
                                       DEFAULT_RETRY_INTERVAL,
-                                      DEFAULT_SEND_TASK_EVENTS)
+                                      DEFAULT_SEND_TASK_EVENTS,
+                                      DEFAULT_SUBGRAPH_TOTAL_RETRIES)
 from cloudify import exceptions
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
@@ -400,18 +401,21 @@ class CloudifyWorkflowNode(object):
 class _WorkflowContextBase(object):
 
     def __init__(self, ctx, remote_ctx_handler_cls):
-        self._context = ctx or {}
-        self._local_task_thread_pool_size = self._context.get(
+        self._context = ctx = ctx or {}
+        self._local_task_thread_pool_size = ctx.get(
             'local_task_thread_pool_size',
             DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
-        self._task_retry_interval = self._context.get('task_retry_interval',
-                                                      DEFAULT_RETRY_INTERVAL)
-        self._task_retries = self._context.get('task_retries',
-                                               DEFAULT_TOTAL_RETRIES)
+
+        self._task_retry_interval = ctx.get('task_retry_interval',
+                                            DEFAULT_RETRY_INTERVAL)
+        self._task_retries = ctx.get('task_retries',
+                                     DEFAULT_TOTAL_RETRIES)
+        self._subgraph_retries = ctx.get('subgraph_retries',
+                                         DEFAULT_SUBGRAPH_TOTAL_RETRIES)
         self._logger = None
 
         if self.local:
-            storage = self._context.pop('storage')
+            storage = ctx.pop('storage')
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
             handler = remote_ctx_handler_cls(self)
@@ -750,6 +754,10 @@ class WorkflowNodesAndInstancesContainer(object):
     def nodes(self):
         return self._nodes.itervalues()
 
+    @property
+    def node_instances(self):
+        return self._node_instances.itervalues()
+
     def get_node(self, node_id):
         """
         Get a node by its id
@@ -843,7 +851,10 @@ class CloudifyWorkflowContextInternal(object):
         self._graph_mode = False
         # the graph is always created internally for events to work properly
         # when graph mode is turned on this instance is returned to the user.
-        self._task_graph = TaskDependencyGraph(workflow_context)
+        subgraph_task_config = self.get_subgraph_task_configuration()
+        self._task_graph = TaskDependencyGraph(
+            workflow_context=workflow_context,
+            default_subgraph_task_config=subgraph_task_config)
 
         # events related
         self._event_monitor = None
@@ -865,6 +876,15 @@ class CloudifyWorkflowContextInternal(object):
             self.workflow_context._task_retry_interval)
         return dict(total_retries=total_retries,
                     retry_interval=retry_interval)
+
+    def get_subgraph_task_configuration(self):
+        bootstrap_context = self._get_bootstrap_context()
+        workflows = bootstrap_context.get('workflows', {})
+        subgraph_retries = workflows.get(
+            'subgraph_retries',
+            self.workflow_context._subgraph_retries
+        )
+        return dict(total_retries=subgraph_retries)
 
     def _get_bootstrap_context(self):
         if self._bootstrap_context is None:
