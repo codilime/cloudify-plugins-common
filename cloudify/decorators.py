@@ -183,6 +183,8 @@ def operation(func=None, **arguments):
 def workflow(func=None, system_wide=False, **arguments):
     """
     Decorate workflow functions with this decorator.
+    Internally, if celery is installed, ``@workflow`` will also wrap
+    the function with a ``@celery.task`` decorator
 
     The ``ctx`` injected to the function arguments is of type
     ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
