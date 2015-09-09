@@ -838,7 +838,7 @@ class SystemWideWorkflowContext(_WorkflowContextBase):
         for dep in rest.deployments.list():
             dep_ctx = self._context.copy()
             dep_ctx['deployment_id'] = dep.id
-            dep_ctx['blueprint_id'] = dep.blueprint_id
+            dep_ctx['blueprint_id'] = dep.blueprint.id
             dc[dep.id] = CloudifyWorkflowContext(dep_ctx)
 
 
@@ -1149,7 +1149,7 @@ class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
                                     target_path=None):
         return super(RemoteCloudifyWorkflowContextHandler, self) \
             .download_blueprint_resource(
-                blueprint_id=self.workflow_ctx.blueprint_id,
+                blueprint_id=self.workflow_ctx.blueprint.id,
                 resource_path=resource_path,
                 target_path=target_path)
 
@@ -1160,7 +1160,7 @@ class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
             deployment_id=deployment_id,
             nodes=nodes,
             context={
-                'blueprint_id': self.workflow_ctx.blueprint_id,
+                'blueprint_id': self.workflow_ctx.blueprint.id,
                 'deployment_id': deployment_id,
                 'execution_id': self.workflow_ctx.execution_id,
                 'workflow_id': self.workflow_ctx.workflow_id,
