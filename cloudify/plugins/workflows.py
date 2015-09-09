@@ -184,6 +184,22 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             raise
 
 
+def _filter_node_instances(ctx, node_ids, node_instance_ids, type_names):
+    filtered_node_instances = []
+    for node in ctx.nodes:
+        if node_ids and node.id not in node_ids:
+            continue
+        if type_names and not next((type_name for type_name in type_names if
+                                    type_name in node.type_hierarchy), None):
+            continue
+
+        for instance in node.instances:
+            if node_instance_ids and instance.id not in node_instance_ids:
+                continue
+            filtered_node_instances.append(instance)
+    return filtered_node_instances
+
+
 def _get_all_host_instances(ctx):
     node_instances = set()
     for node_instance in ctx.node_instances:
@@ -193,28 +209,48 @@ def _get_all_host_instances(ctx):
 
 
 @workflow
-def install_new_agents(ctx, **_):
+def install_new_agents(ctx, install_agent_timeout, node_ids,
+                       node_instance_ids, **_):
+    if node_ids or node_instance_ids:
+        filtered_node_instances = _filter_node_instances(
+            ctx=ctx,
+            node_ids=node_ids,
+            node_instance_ids=node_instance_ids,
+            type_names=[])
+        error = False
+        for node_instance in filtered_node_instances:
+            if not lifecycle.is_host_node(node_instance):
+                msg = 'Node instance {0} is not host.'.format(node_instance.id)
+                ctx.logger.error(msg)
+                error = True
+            elif node_instance.node.properties['install_agent'] is False:
+                msg = ('Agent is not installed on '
+                       'node instance {0}').format(node_instance.id)
+                ctx.logger.error(msg)
+                error = True
+        if error:
+            raise ValueError('Specified filters are not correct.')
+        else:
+            hosts = filtered_node_instances
+    else:
+        hosts = (host for host in _get_all_host_instances(ctx)
+                 if host.node.properties['install_agent'] is True)
+
     graph = ctx.graph_mode()
-    hosts = _get_all_host_instances(ctx)
     for host in hosts:
         seq = graph.sequence()
-        # This can work only because queue/celery worker
-        # that will run task is chosen just before this task
-        # is executed. So all modification to cloudify_agent
-        # dict performed by previous operations will be visible
-        # here.
-        if host.node.properties['install_agent'] is True:
-            seq.add(
-                host.send_event('Installing new agent.'),
-                host.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.create_amqp'),
-                host.send_event('New agent installed.'),
-                *lifecycle.prepare_running_agent(host)
-            )
-            for subnode in host.get_contained_subgraph():
-                seq.add(subnode.execute_operation(
-                    'cloudify.interfaces.monitoring.start'))
-
+        seq.add(
+            host.send_event('Installing new agent.'),
+            host.execute_operation(
+                'cloudify.interfaces.cloudify_agent.create_amqp',
+                kwargs={'install_agent_timeout': install_agent_timeout},
+                allow_kwargs_override=True),
+            host.send_event('New agent installed.'),
+            *lifecycle.prepare_running_agent(host)
+        )
+        for subnode in host.get_contained_subgraph():
+            seq.add(subnode.execute_operation(
+                'cloudify.interfaces.monitoring.start'))
     graph.execute()
 
 
@@ -228,18 +264,11 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
     subgraphs = {}
 
     # filtering node instances
-    filtered_node_instances = []
-    for node in ctx.nodes:
-        if node_ids and node.id not in node_ids:
-            continue
-        if type_names and not next((type_name for type_name in type_names if
-                                    type_name in node.type_hierarchy), None):
-            continue
-
-        for instance in node.instances:
-            if node_instance_ids and instance.id not in node_instance_ids:
-                continue
-            filtered_node_instances.append(instance)
+    filtered_node_instances = _filter_node_instances(
+        ctx=ctx,
+        node_ids=node_ids,
+        node_instance_ids=node_instance_ids,
+        type_names=type_names)
 
     if run_by_dependency_order:
         # if run by dependency order is set, then create stub subgraphs for the
