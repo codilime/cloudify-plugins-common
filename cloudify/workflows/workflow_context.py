@@ -838,7 +838,7 @@ class SystemWideWorkflowContext(_WorkflowContextBase):
         for dep in rest.deployments.list():
             dep_ctx = self._context.copy()
             dep_ctx['deployment_id'] = dep.id
-            dep_ctx['blueprint_id'] = dep.blueprint.id
+            dep_ctx['blueprint_id'] = dep.blueprint_id
             dc[dep.id] = CloudifyWorkflowContext(dep_ctx)
 
 
