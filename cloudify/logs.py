@@ -195,13 +195,13 @@ def send_sys_wide_wf_event(ctx, event_type, message=None, args=None,
                            additional_context=None, out_func=None):
     """Send a workflow event to RabbitMQ
 
-    :param ctx: A SystemWideWorkflowContext instance
+    :param ctx: A CloudifySystemWideWorkflowContext instance
     :param event_type: The event type
     :param message: The message
     :param args: additional arguments that may be added to the message
     :param additional_context: additional context to be added to the context
     """
-    _send_event(ctx, 'sys_wide_wf', event_type, message, args,
+    _send_event(ctx, 'system_wide_workflow', event_type, message, args,
                 additional_context, out_func)
 
 
@@ -277,7 +277,7 @@ def _send_event(ctx, context_type, event_type,
     elif context_type == 'workflow_node':
         message_context = message_context_from_workflow_node_instance_context(
             ctx)
-    elif context_type == 'sys_wide_wf':
+    elif context_type == 'system_wide_workflow':
         message_context = message_context_from_sys_wide_wf_context(ctx)
     else:
         raise RuntimeError('Invalid context_type: {0}'.format(context_type))

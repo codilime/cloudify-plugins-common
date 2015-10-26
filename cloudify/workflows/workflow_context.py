@@ -830,22 +830,23 @@ class CloudifyWorkflowContext(
         return context
 
 
-class SystemWideWorkflowContext(_WorkflowContextBase):
+class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
 
     def __init__(self, ctx):
-        super(SystemWideWorkflowContext, self).__init__(
+        super(CloudifySystemWideWorkflowContext, self).__init__(
             ctx,
             SystemWideWfRemoteContextHandler
         )
 
     def load_deployments_contexts(self):
         rest = get_rest_client()
-        self.deployments_contexts = dc = {}
+        self.deployments_contexts = {}
         for dep in rest.deployments.list():
             dep_ctx = self._context.copy()
             dep_ctx['deployment_id'] = dep.id
             dep_ctx['blueprint_id'] = dep.blueprint_id
-            dc[dep.id] = CloudifyWorkflowContext(dep_ctx)
+            self.deployments_contexts[dep.id] = \
+                CloudifyWorkflowContext(dep_ctx)
 
 
 class CloudifyWorkflowContextInternal(object):

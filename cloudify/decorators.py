@@ -23,8 +23,9 @@ from StringIO import StringIO
 from functools import wraps
 
 from cloudify import context
-from cloudify.workflows.workflow_context import (CloudifyWorkflowContext,
-                                                 SystemWideWorkflowContext)
+from cloudify.workflows.workflow_context import (
+    CloudifyWorkflowContext,
+    CloudifySystemWideWorkflowContext)
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
@@ -187,8 +188,8 @@ def workflow(func=None, system_wide=False, **arguments):
     the function with a ``@celery.task`` decorator
 
     The ``ctx`` injected to the function arguments is of type
-    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
-    or ``cloudify.workflows.workflow_context.SystemWideWorkflowContext``
+    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext`` or
+    ``cloudify.workflows.workflow_context.CloudifySystemWideWorkflowContext``
     if ``system_wide`` flag is set to True.
 
     The ``ctx`` object can also be accessed by importing
@@ -196,8 +197,8 @@ def workflow(func=None, system_wide=False, **arguments):
 
     ``system_wide`` flag turns this workflow into a system-wide workflow that
     is executed by the management worker and has access to an instance of
-    ``cloudify.workflows.workflow_context.SystemWideWorkflowContext`` as its
-    context.
+    ``cloudify.workflows.workflow_context.CloudifySystemWideWorkflowContext``
+    as its context.
 
     Example::
 
@@ -208,7 +209,7 @@ def workflow(func=None, system_wide=False, **arguments):
             pass
     """
     if system_wide:
-        ctx_class = SystemWideWorkflowContext
+        ctx_class = CloudifySystemWideWorkflowContext
     else:
         ctx_class = CloudifyWorkflowContext
     if func is not None:
