@@ -12,7 +12,9 @@ if workdir_path is None:
     config = {}
 else:
     # Load config
-    conf_file_path = os.path.join(workdir_path, 'broker_config.json')
+    default_conf_file_path = os.path.join(workdir_path, 'broker_config.json')
+    conf_file_path = os.getenv(
+        'CLOUDIFY_BROKER_CONFIG_PATH') or default_conf_file_path
     with open(conf_file_path) as conf_handle:
         conf_file = conf_handle.read()
         config = json.loads(conf_file)
