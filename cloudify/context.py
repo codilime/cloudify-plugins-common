@@ -96,7 +96,8 @@ class CommonContext(object):
             self._endpoint = ManagerEndpoint(self)
 
         self.blueprint = BlueprintContext(self._context)
-        self.deployment = DeploymentContext(self._context)
+        self.deployment = DeploymentWithNodesContext(context=self._context,
+                                                     endpoint=self._endpoint)
 
 
 class BootstrapContext(object):
@@ -278,6 +279,27 @@ class DeploymentContext(EntityContext):
     def id(self):
         """The deployment id the plugin invocation belongs to."""
         return self._context.get('deployment_id')
+
+
+class DeploymentWithNodesContext(DeploymentContext):
+
+    def __init__(self, endpoint, *args, **kwargs):
+        super(DeploymentWithNodesContext, self).__init__(*args, **kwargs)
+        self._endpoint = endpoint
+
+    def get_node_instance(self, node_instance_id):
+        node_instance = self._endpoint.get_node_instance(node_instance_id)
+        context = {
+            'node_name': node_instance.node_id,
+            'node_id': node_instance_id
+        }
+        node_ctx = NodeContext(context,
+                               endpoint=self._endpoint)
+        node_instance_ctx = NodeInstanceContext(context,
+                                                endpoint=self._endpoint,
+                                                node=node_ctx,
+                                                modifiable=True)
+        return node_instance_ctx
 
 
 class NodeContext(EntityContext):
