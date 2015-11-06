@@ -211,7 +211,7 @@ def _get_all_host_instances(ctx):
 
 @workflow
 def install_new_agents(ctx, install_agent_timeout, node_ids,
-                       node_instance_ids, **_):
+                       node_instance_ids, validate=True, install=True, **_):
     if node_ids or node_instance_ids:
         filtered_node_instances = _filter_node_instances(
             ctx=ctx,
@@ -236,25 +236,54 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
         else:
             hosts = filtered_node_instances
     else:
-        hosts = (host for host in _get_all_host_instances(ctx)
+        hosts = [host for host in _get_all_host_instances(ctx)
                  if utils.internal.get_install_method(host.node.properties)
-                 != constants.AGENT_INSTALL_METHOD_NONE)
+                 != constants.AGENT_INSTALL_METHOD_NONE]
 
-    graph = ctx.graph_mode()
     for host in hosts:
-        seq = graph.sequence()
-        seq.add(
-            host.send_event('Installing new agent.'),
-            host.execute_operation(
-                'cloudify.interfaces.cloudify_agent.create_amqp',
-                kwargs={'install_agent_timeout': install_agent_timeout},
-                allow_kwargs_override=True),
-            host.send_event('New agent installed.'),
-            *lifecycle.prepare_running_agent(host)
+        state = host.get_state().get()
+        if state != 'started':
+            raise RuntimeError('Node {0} is not started (state: {1})'.format(
+                host.id,
+                state))
+    graph = ctx.graph_mode()
+    hosts_success = []
+    if validate:
+        for host in hosts:
+            seq = graph.sequence()
+            seq.add(
+                host.send_event('Validating agent connection.'),
+                host.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.validate_amqp'))
+            host_success = host.send_event('Validation done')
+            seq.add(host_success)
+            hosts_success.append(host_success)
+    if install:
+        validate_all = ctx.execute_task(
+            'cloudify.plugins.tasks.assert_agent_validation_succeeded',
+            kwargs={'node_instances_id': [host.id for host in hosts]}
         )
-        for subnode in host.get_contained_subgraph():
-            seq.add(subnode.execute_operation(
-                'cloudify.interfaces.monitoring.start'))
+        graph.add_task(validate_all)
+        for host_success in hosts_success:
+            graph.add_dependency(validate_all, host_success)
+        for host in hosts:
+            seq = graph.sequence()
+            installing_task = host.send_event('Installing new agent.')
+            seq.add(
+                installing_task,
+                host.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.create_amqp',
+                    kwargs={'install_agent_timeout': install_agent_timeout},
+                    allow_kwargs_override=True),
+                host.send_event('New agent installed.'),
+                host.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.validate_amqp'),
+                *lifecycle.prepare_running_agent(host)
+            )
+            for subnode in host.get_contained_subgraph():
+                seq.add(subnode.execute_operation(
+                    'cloudify.interfaces.monitoring.start'))
+            graph.add_dependency(installing_task, validate_all)
     graph.execute()
 
 
