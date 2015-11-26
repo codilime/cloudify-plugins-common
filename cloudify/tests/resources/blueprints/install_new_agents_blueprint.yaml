@@ -2,7 +2,7 @@ tosca_definitions_version: cloudify_dsl_1_2
 
 imports:
 #  - http://www.getcloudify.org/spec/cloudify/3.3/types.yaml
-  - https://raw.githubusercontent.com/codilime/cloudify-manager/CFY-3040_validate_only_mode_for_install_agents/resources/rest-service/cloudify/types/types.yaml
+  - https://raw.githubusercontent.com/codilime/cloudify-manager/CFY-3040_agents_status/resources/rest-service/cloudify/types/types.yaml
 
 plugins:
   p:

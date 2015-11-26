@@ -90,3 +90,11 @@ class TestInstallNewAgentsWorkflow(testtools.TestCase):
                                          ".*Could not connect.*host_b.*"):
             cfy_local.execute('install_new_agents')
         self._assert_all_computes_created(cfy_local, created=False)
+
+    @workflow_test(blueprint_path, inputs={
+        'host_a_validation_result': _VALIDATION_SUCCESS,
+        'host_b_validation_result': _VALIDATION_SUCCESS})
+    def test_validation_only(self, cfy_local):
+        cfy_local.execute('install')
+        cfy_local.execute('install_new_agents', parameters={'install': False})
+        self._assert_all_computes_created(cfy_local, created=False)
