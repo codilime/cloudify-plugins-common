@@ -247,43 +247,41 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
                 host.id,
                 state))
     graph = ctx.graph_mode()
-    hosts_success = []
     if validate:
+        validate_subgraph = graph.subgraph('validate')
         for host in hosts:
-            seq = graph.sequence()
+            seq = validate_subgraph.sequence()
             seq.add(
                 host.send_event('Validating agent connection.'),
                 host.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.validate_amqp'))
-            host_success = host.send_event('Validation done')
-            seq.add(host_success)
-            hosts_success.append(host_success)
+                    'cloudify.interfaces.cloudify_agent.validate_amqp',
+                    kwargs={
+                        'fail_on_agent_not_installable': True
+                    }),
+                host.send_event('Validation done'))
     if install:
-        validate_all = ctx.execute_task(
-            'cloudify.plugins.tasks.assert_agent_validation_succeeded',
-            kwargs={'node_instances_id': [host.id for host in hosts]}
-        )
-        graph.add_task(validate_all)
-        for host_success in hosts_success:
-            graph.add_dependency(validate_all, host_success)
+        install_subgraph = graph.subgraph('install')
         for host in hosts:
-            seq = graph.sequence()
-            installing_task = host.send_event('Installing new agent.')
+            seq = install_subgraph.sequence()
             seq.add(
-                installing_task,
+                host.send_event('Installing new agent'),
                 host.execute_operation(
                     'cloudify.interfaces.cloudify_agent.create_amqp',
                     kwargs={'install_agent_timeout': install_agent_timeout},
                     allow_kwargs_override=True),
                 host.send_event('New agent installed.'),
                 host.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.validate_amqp'),
+                    'cloudify.interfaces.cloudify_agent.validate_amqp',
+                    kwargs={
+                        'fail_on_agent_dead': True
+                    }),
                 *lifecycle.prepare_running_agent(host)
             )
             for subnode in host.get_contained_subgraph():
                 seq.add(subnode.execute_operation(
                     'cloudify.interfaces.monitoring.start'))
-            graph.add_dependency(installing_task, validate_all)
+    if validate and install:
+        graph.add_dependency(install_subgraph, validate_subgraph)
     graph.execute()
 
 

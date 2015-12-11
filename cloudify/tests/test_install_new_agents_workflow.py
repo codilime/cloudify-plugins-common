@@ -19,6 +19,7 @@ import testtools
 
 from cloudify.constants import COMPUTE_NODE_TYPE
 from cloudify.decorators import operation
+from cloudify.exceptions import NonRecoverableError
 from cloudify.test_utils import workflow_test
 
 
@@ -31,10 +32,14 @@ _VALIDATION_FAIL = {
 
 
 @operation
-def validate_amqp(ctx, **_):
+def validate_amqp(ctx, fail_on_agent_dead=False,
+                  fail_on_agent_not_installable=False, **_):
     status = ctx.node.properties['validation_result']
     if status:
         ctx.instance.runtime_properties['agent_status'] = status
+        if fail_on_agent_not_installable and \
+                not status['agent_alive_crossbroker']:
+            raise NonRecoverableError()
 
 
 @operation
@@ -72,22 +77,12 @@ class TestInstallNewAgentsWorkflow(testtools.TestCase):
         self._assert_all_computes_created(cfy_local, created=True)
 
     @workflow_test(blueprint_path, inputs={
-        'host_a_validation_result': {},
-        'host_b_validation_result': _VALIDATION_SUCCESS})
-    def test_skipped_validation(self, cfy_local):
-        cfy_local.execute('install')
-        with testtools.ExpectedException(RuntimeError,
-                                         ".*No validation.*host_a.*"):
-            cfy_local.execute('install_new_agents')
-        self._assert_all_computes_created(cfy_local, created=False)
-
-    @workflow_test(blueprint_path, inputs={
         'host_a_validation_result': _VALIDATION_SUCCESS,
         'host_b_validation_result': _VALIDATION_FAIL})
     def test_failed_validation(self, cfy_local):
         cfy_local.execute('install')
         with testtools.ExpectedException(RuntimeError,
-                                         ".*Could not connect.*host_b.*"):
+                                         ".*Task failed.*validate_amqp.*"):
             cfy_local.execute('install_new_agents')
         self._assert_all_computes_created(cfy_local, created=False)
 
