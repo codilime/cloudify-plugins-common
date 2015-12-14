@@ -23,6 +23,8 @@ import subprocess
 import sys
 import tempfile
 
+from time import sleep
+
 from cloudify import constants
 from cloudify.exceptions import (
     CommandExecutionException,
@@ -51,6 +53,8 @@ def setup_logger(logger_name,
     :rtype: logging.Logger
     """
 
+    print "ble"
+
     if logger_format is None:
         logger_format = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
     logger = logging.getLogger(logger_name)
@@ -59,10 +63,10 @@ def setup_logger(logger_name,
         for handler in logger.handlers:
             logger.removeHandler(handler)
 
-    if not handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.DEBUG)
-        handlers = [handler]
+    #if not handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    handlers = [handler]
 
     formatter = logging.Formatter(fmt=logger_format,
                                   datefmt='%H:%M:%S')
@@ -70,7 +74,7 @@ def setup_logger(logger_name,
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    logger.setLevel(logger_level)
+    logger.setLevel(logging.DEBUG)
     if not propagate:
         logger.propagate = False
     return logger
