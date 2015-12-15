@@ -833,6 +833,24 @@ class CloudifyWorkflowContext(
 
 
 class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
+    """
+    An instance of this class gets passed as the ``ctx`` parameter to a
+    workflow method decorated with ``@workflow(system_wide=True)``.
+    This context is not particularly bound to any specific deployment.
+    It provides a ``deployments_contexts`` property, which is a lazily loaded
+    dictionary, whose keys are deployment ids and values are lazily loaded
+    (thanks to ``proxy_tools.proxy``) deployment contexts corresponding to
+    those deployments.
+    For example, in order to make use of any functionality provided by the
+    ``CloudifyWorkflowContext`` class for a deployment "dep1", the code should
+    look like this:
+
+    Example::
+
+        with ctx.deployments_contexts['dep1'] as dep:
+            for node_instance in dep.node_instances:
+                pass
+    """
 
     def __init__(self, ctx):
         super(CloudifySystemWideWorkflowContext, self).__init__(
