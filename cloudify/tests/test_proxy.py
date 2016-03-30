@@ -194,6 +194,13 @@ class TestCtxProxy(testtools.TestCase):
         response = self.request(*args)
         self.assertEqual(args[1:], response)
 
+    def test_missing_property(self):
+        response = self.request('node', 'properties', 'nonexistent')
+        self.assertEqual(response, {})
+        response = self.request('instance', 'runtime-properties',
+                                'nonexistent')
+        self.assertEqual(response, {})
+
 
 @istest
 class TestUnixCtxProxy(TestCtxProxy):
