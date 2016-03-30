@@ -413,8 +413,7 @@ class TestPathDictAccess(testtools.TestCase):
     def test_get_nonexistent(self):
         obj = {}
         path_dict = PathDictAccess(obj)
-        result = path_dict.get('foo')
-        self.assertEqual(result, {})
+        self.assertRaises(RuntimeError, path_dict.get, 'foo')
 
     def test_get_by_index_not_list(self):
         obj = {'foo': {0: 'not-list'}}
