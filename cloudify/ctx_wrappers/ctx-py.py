@@ -69,8 +69,8 @@ class CtxNodeProperties(object):
 
     def get(self, property_name, returns=None):
         try:
-            return self.__getitem__(property_name)
-        except:
+            return self[property_name]
+        except subprocess.CalledProcessError as e:
             return returns
 
     def get_all(self):
@@ -117,7 +117,10 @@ class CtxInstanceRuntimeProperties(object):
         return unicode_to_string(result)
 
     def get(self, property_name, returns=None):
-        return self.__getitem__(property_name) or returns
+        try:
+            return self[property_name]
+        except subprocess.CalledProcessError as e:
+            return returns
 
     def __setitem__(self, property_name, value):
         cmd = ['ctx', 'instance', 'runtime_properties', property_name,
