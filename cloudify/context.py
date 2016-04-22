@@ -337,11 +337,14 @@ class NodeInstanceContext(EntityContext):
         self._host_ip = None
         self._relationships = None
 
+    def _get_node_instance(self):
+        self._node_instance = self._endpoint.get_node_instance(self.id)
+        self._node_instance.runtime_properties.modifiable = \
+            self._modifiable
+
     def _get_node_instance_if_needed(self):
         if self._node_instance is None:
-            self._node_instance = self._endpoint.get_node_instance(self.id)
-            self._node_instance.runtime_properties.modifiable = \
-                self._modifiable
+            self._get_node_instance()
 
     @property
     def id(self):
@@ -371,6 +374,14 @@ class NodeInstanceContext(EntityContext):
         if self._node_instance is not None and self._node_instance.dirty:
             self._endpoint.update_node_instance(self._node_instance)
             self._node_instance = None
+
+    def refresh(self):
+        """Force fetching up-to-date instance data.
+
+        Useful for scripts that must reliably work in parallel, with each
+        updating runtime properties.
+        """
+        self._get_node_instance()
 
     def _get_node_instance_ip_if_needed(self):
         self._get_node_instance_if_needed()
