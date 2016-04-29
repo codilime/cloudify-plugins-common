@@ -145,7 +145,10 @@ def send_task_event(state, task, send_event_func, event):
         raise RuntimeError('Event for task {0} is None'.format(task.name))
 
     if event and event.get('exception'):
-        exception_str = str(event.get('exception'))
+        try:
+            exception_str = unicode(event.get('exception')).encode('utf-8')
+        except UnicodeDecodeError:
+            exception_str = str(event.get('exception'))
     else:
         exception_str = None
 
