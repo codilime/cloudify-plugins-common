@@ -20,6 +20,29 @@ from cloudify.manager import get_rest_client
 
 
 @workflow
+def sanitycheck(ctx, **kwargs):
+    def _subgraph(instance, graph):
+        op = 'cloudify.interfaces.sanitycheck.create'
+        subgraph = graph.subgraph('sanitycheck_{0}'.format(instance.id))
+        seq = subgraph.sequence()
+        if op in instance.node.operations:
+            seq.add(
+                instance.execute_operation(op)
+            )
+        return subgraph
+
+    def _finish(subgraphs):
+        pass
+
+    processor = lifecycle.LifecycleProcessor(
+        graph=ctx.graph_mode(),
+        node_instances=set(ctx.node_instances),
+        related_nodes=None
+    )
+    processor._process_node_instances(_subgraph, _finish)
+
+
+@workflow
 def install(ctx, **kwargs):
     """Default install workflow"""
     lifecycle.install_node_instances(
