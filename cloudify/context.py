@@ -376,10 +376,11 @@ class NodeInstanceContext(EntityContext):
         logger = get_task_logger(__name__)
         logger.error('starting {0!r}'.format(handler))
         if handler is not None:
-            logger.error('not none')
-            if self._node_instance and self._node_instance.dirty:
+            logger.error('WOOT not none')
+            if self._node_instance is not None and self._node_instance.dirty:
                 # TODO Error message - when using handler, dont modify props
                 # before, because these changes might be lost
+                logger.error('DIRTY')
                 raise ValueError('Runtime-properties dirty')
 
             while True:
