@@ -18,6 +18,7 @@ import errno
 import os
 import warnings
 
+from cloudify_rest_client.exceptions import CloudifyClientError
 from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
 from cloudify.logs import init_cloudify_logger
 from cloudify import constants
@@ -372,32 +373,24 @@ class NodeInstanceContext(EntityContext):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
-        from celery.utils.log import get_task_logger
-        logger = get_task_logger(__name__)
-        logger.error('starting {0!r}'.format(handler))
         if handler is not None:
-            logger.error('WOOT not none')
             if self._node_instance is not None and self._node_instance.dirty:
                 # TODO Error message - when using handler, dont modify props
                 # before, because these changes might be lost
-                logger.error('DIRTY')
                 raise ValueError('Runtime-properties dirty')
 
             while True:
                 new_props = handler(self.runtime_properties)
-                logger.error('merging')
                 self.runtime_properties.update(new_props)
                 try:
-                    logger.error('saving')
                     self._endpoint.update_node_instance(self._node_instance)
-                except Exception as e:
-                    logger.error('WAT error {0!r} {0}'.format(e))
+                except CloudifyClientError as e:
+                    if e.status_code != 409:
+                        raise
                     self._get_node_instance()
                 else:
-                    logger.error('succes!')
                     break
         else:
-            logger.error('none')
             if self._node_instance is not None and self._node_instance.dirty:
                 self._endpoint.update_node_instance(self._node_instance)
         self._node_instance = None
