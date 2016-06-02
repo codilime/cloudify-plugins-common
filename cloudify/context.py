@@ -371,6 +371,7 @@ class NodeInstanceContext(EntityContext):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
+        print 'test test'
         if handler is not None:
             if self._node_instance and self._node_instance.dirty:
                 # TODO Error message - when using handler, dont modify props
