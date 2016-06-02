@@ -372,9 +372,9 @@ class NodeInstanceContext(EntityContext):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
-        from cloudify import ctx
-        logger = ctx.logger
-        logger.error('starting {0}'.format(repr(handler)))
+        from celery.utils.log import get_task_logger
+        logger = get_task_logger(__name__)
+        logger.error('starting {0!r}'.format(handler))
         if handler is not None:
             logger.error('not none')
             if self._node_instance and self._node_instance.dirty:
