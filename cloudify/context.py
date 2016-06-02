@@ -371,8 +371,11 @@ class NodeInstanceContext(EntityContext):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
-        print 'test test'
+        from celery.utils.log import get_task_logger
+        logger = get_task_logger(__name__)
+        logger.error('starting')
         if handler is not None:
+            logger.error('not none')
             if self._node_instance and self._node_instance.dirty:
                 # TODO Error message - when using handler, dont modify props
                 # before, because these changes might be lost
@@ -380,15 +383,19 @@ class NodeInstanceContext(EntityContext):
 
             while True:
                 new_props = handler(self.runtime_properties)
+                logger.error('merging')
                 self.runtime_properties.update(new_props)
                 try:
+                    logger.error('saving')
                     self._endpoint.update_node_instance(self._node_instance)
                 except Exception as e:
-                    print 'e', e
+                    logger.error('error {0}'.format(e))
                     self.refresh()
                 else:
+                    logger.error('succes!')
                     break
         else:
+            logger.error('none')
             if self._node_instance is not None and self._node_instance.dirty:
                 self._endpoint.update_node_instance(self._node_instance)
         self._node_instance = None
