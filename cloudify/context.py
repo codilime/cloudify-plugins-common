@@ -391,7 +391,7 @@ class NodeInstanceContext(EntityContext):
                     logger.error('saving')
                     self._endpoint.update_node_instance(self._node_instance)
                 except Exception as e:
-                    logger.error('WAT error {0}'.format(e))
+                    logger.error('WAT error {0!r} {0}'.format(e))
                     self.refresh()
                 else:
                     logger.error('succes!')
