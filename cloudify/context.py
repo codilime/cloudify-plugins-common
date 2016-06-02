@@ -362,7 +362,7 @@ class NodeInstanceContext(EntityContext):
         self._get_node_instance_if_needed()
         return self._node_instance.runtime_properties
 
-    def update(self):
+    def update(self, handler=None):
         """
         Stores new/updated runtime properties for the node instance in context
         in Cloudify's storage.
@@ -371,9 +371,26 @@ class NodeInstanceContext(EntityContext):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
-        if self._node_instance is not None and self._node_instance.dirty:
-            self._endpoint.update_node_instance(self._node_instance)
-            self._node_instance = None
+        if handler is not None:
+            if self._node_instance and self._node_instance.dirty:
+                # TODO Error message - when using handler, dont modify props
+                # before, because these changes might be lost
+                raise ValueError('Runtime-properties dirty')
+
+            while True:
+                new_props = handler(self.runtime_properties)
+                self.runtime_properties.update(new_props)
+                try:
+                    self._endpoint.update_node_instance(self._node_instance)
+                except Exception as e:
+                    print 'e', e
+                    self.refresh()
+                else:
+                    break
+        else:
+            if self._node_instance is not None and self._node_instance.dirty:
+                self._endpoint.update_node_instance(self._node_instance)
+        self._node_instance = None
 
     def refresh(self):
         """Force fetching up-to-date instance data.
@@ -381,6 +398,8 @@ class NodeInstanceContext(EntityContext):
         Useful for scripts that must reliably work in parallel, with each
         updating runtime properties.
         """
+        if self._node_instance and self._node_instance.dirty:
+            raise ValueError('Runtime-properties dirty: cant refresh')
         self._get_node_instance()
 
     def _get_node_instance_ip_if_needed(self):
