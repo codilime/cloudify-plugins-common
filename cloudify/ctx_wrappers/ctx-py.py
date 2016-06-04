@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
+import os
+import imp
 import sys
 import json
 import shlex
+import tempfile
 import subprocess
 from collections import MutableMapping, Mapping
 
@@ -255,5 +258,61 @@ class Ctx(object):
             cmd.append('@{0}'.format(json.dumps(kwargs)))
         return check_output(cmd)
 
+    def install_import_hook(self, base_dir='.'):
+        base_dir = 'remote://' + base_dir
+
+        def _finder_factory(path):
+            if path.startswith('remote://'):
+                return Finder(self, path.replace('remote://', ''))
+
+        sys.path_hooks.insert(0, _finder_factory)
+        sys.path.append(base_dir)
+
+
+class Finder(object):
+    def __init__(self, ctx, base_dir):
+        self._ctx = ctx
+        self._base_dir = base_dir
+
+    def find_module(self, fullname, path=None):
+        fd, filename = tempfile.mkstemp()
+        os.close(fd)
+        parts = fullname.split('.')
+        remote_filename = os.path.join(self._base_dir, *parts) + '.py'
+        if fullname in sys.modules:
+            return None
+        try:
+            self._ctx.download_resource(remote_filename, filename)
+        except subprocess.CalledProcessError:
+            return None
+        return Loader(self._ctx, filename)
+
+
+class Loader(object):
+    def __init__(self, ctx, filename):
+        self._ctx = ctx
+        self._filename = filename
+
+    def get_code(self, fullname):
+        with open(self._filename) as f:
+            return f.read()
+
+    def is_package(self, fullname):
+        return True
+
+    def load_module(self, fullname):
+        code = self.get_code(fullname)
+        ispkg = self.is_package(fullname)
+        # TODO remove from sys.modules if exec() fails
+        mod = sys.modules.setdefault(fullname, imp.new_module(fullname))
+        mod.__file__ = "<%s>" % self.__class__.__name__
+        mod.__loader__ = self
+        if ispkg:
+            mod.__path__ = []
+            mod.__package__ = fullname
+        else:
+            mod.__package__ = fullname.rpartition('.')[0]
+        exec(code, mod.__dict__)
+        return mod
 
 ctx = Ctx()
