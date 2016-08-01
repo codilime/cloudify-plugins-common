@@ -1388,7 +1388,9 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     @property
     def operation_cloudify_context(self):
         return {'local': True,
-                'storage': self.storage}
+                'storage': self.storage,
+                'rest_username': utils.get_rest_username(),
+                'rest_password': utils.get_rest_password()}
 
     def get_set_state_task(self,
                            workflow_node_instance,
