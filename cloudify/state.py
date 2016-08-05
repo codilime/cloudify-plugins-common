@@ -79,7 +79,11 @@ class CurrentContext(threading.local):
         try:
             yield self
         finally:
-            self.set(previous_ctx, previous_parameters)
+            # avoid setting parameters to the default {}, if they weren't set
+            # previously
+            self.clear()
+            if previous_ctx is not None or previous_parameters is not None:
+                self.set(previous_ctx, previous_parameters)
 
 
 current_ctx = CurrentContext()
